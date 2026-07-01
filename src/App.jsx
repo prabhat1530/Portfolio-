@@ -13,12 +13,25 @@ import Footer from './components/Footer';
 
 export default function App() {
   const [loaded, setLoaded] = useState(false);
+  const [currentRoute, setCurrentRoute] = useState(window.location.hash || '#/');
 
   useEffect(() => {
     // Simulate preloader
     const timer = setTimeout(() => setLoaded(true), 1800);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setCurrentRoute(window.location.hash || '#/');
+      window.scrollTo(0, 0);
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  const isStudyPage = currentRoute.startsWith('#/study') || currentRoute.startsWith('#study');
 
   return (
     <>
@@ -36,17 +49,22 @@ export default function App() {
       <ParticleCanvas />
 
       {/* Navigation */}
-      <Navbar />
+      <Navbar isStudyPage={isStudyPage} />
 
       {/* Main Content */}
       <main style={{ position: 'relative', zIndex: 1 }}>
-        <Hero />
-        <About />
-        <Skills />
-        <Experience />
-        <Projects />
-        <StudyHub />
-        <Contact />
+        {isStudyPage ? (
+          <StudyHub />
+        ) : (
+          <>
+            <Hero />
+            <About />
+            <Skills />
+            <Experience />
+            <Projects />
+            <Contact />
+          </>
+        )}
       </main>
 
       {/* Footer */}

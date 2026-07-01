@@ -11,17 +11,19 @@ const NAV_ITEMS = [
   { label: 'Contact', href: '#contact' },
 ];
 
-export default function Navbar() {
+export default function Navbar({ isStudyPage }) {
   const [scrolled, setScrolled] = useState(false);
   const [activeSection, setActiveSection] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
+    if (isStudyPage) return;
+
     const handleScroll = () => {
       setScrolled(window.scrollY > 50);
 
       // Determine active section
-      const sections = NAV_ITEMS.map(item => item.href.slice(1));
+      const sections = NAV_ITEMS.map(item => item.href.slice(1)).filter(s => s !== 'study-hub');
       for (let i = sections.length - 1; i >= 0; i--) {
         const el = document.getElementById(sections[i]);
         if (el && el.getBoundingClientRect().top <= 200) {
@@ -33,11 +35,19 @@ export default function Navbar() {
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [isStudyPage]);
 
   const handleNavClick = (e, href) => {
+    if (isStudyPage) return; // let natural link routing do it
+
     e.preventDefault();
     setMenuOpen(false);
+    
+    if (href === '#/study') {
+      window.location.hash = '#/study';
+      return;
+    }
+
     const el = document.querySelector(href);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth' });
@@ -45,9 +55,9 @@ export default function Navbar() {
   };
 
   return (
-    <nav className={`navbar ${scrolled ? 'scrolled' : ''}`} id="navbar">
+    <nav className={`navbar ${scrolled || isStudyPage ? 'scrolled' : ''}`} id="navbar">
       <div className="container">
-        <a href="#" className="nav-logo" data-cursor-hover onClick={(e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+        <a href="#/" className="nav-logo" data-cursor-hover onClick={() => { if (!isStudyPage) window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
           <img src="/assets/pk_logo.png" alt="PK Logo" className="nav-logo-img" />
         </a>
 
@@ -62,23 +72,39 @@ export default function Navbar() {
         </button>
 
         <div className={`nav-links ${menuOpen ? 'open' : ''}`}>
-          {NAV_ITEMS.map(item => (
-            <NavLink
-              key={item.href}
-              href={item.href}
-              label={item.label}
-              active={activeSection === item.href.slice(1)}
-              onClick={(e) => handleNavClick(e, item.href)}
-            />
-          ))}
-          <a
-            href="#contact"
-            className="nav-cta"
-            data-cursor-hover
-            onClick={(e) => handleNavClick(e, '#contact')}
-          >
-            Let's Talk
-          </a>
+          {isStudyPage ? (
+            <a
+              href="#/"
+              className="nav-link active"
+              onClick={() => setMenuOpen(false)}
+              data-cursor-hover
+            >
+              ← Back to Portfolio
+            </a>
+          ) : (
+            <>
+              {NAV_ITEMS.map(item => {
+                const targetHref = item.label === 'Study Hub' ? '#/study' : item.href;
+                return (
+                  <NavLink
+                    key={item.href}
+                    href={targetHref}
+                    label={item.label}
+                    active={activeSection === item.href.slice(1)}
+                    onClick={(e) => handleNavClick(e, targetHref)}
+                  />
+                );
+              })}
+              <a
+                href="#contact"
+                className="nav-cta"
+                data-cursor-hover
+                onClick={(e) => handleNavClick(e, '#contact')}
+              >
+                Let's Talk
+              </a>
+            </>
+          )}
         </div>
       </div>
     </nav>

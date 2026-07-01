@@ -12,6 +12,7 @@ const TABS = [
   { id: 'sql', label: '🗃️ SQL Notes' },
   { id: 'ai', label: '🤖 AI/ML' },
   { id: 'interview', label: '🎯 Interview Prep' },
+  { id: 'assistant', label: '✨ AI Assistant' },
   { id: 'notes', label: '📝 Quick Notes' },
 ];
 
@@ -40,7 +41,7 @@ function renderMarkdown(text) {
 /* ================================
    DSA TAB
    ================================ */
-function DSATab({ progress, setProgress }) {
+function DSATab({ progress, setProgress, askAI }) {
   const [expandedTopic, setExpandedTopic] = useState(null);
 
   const toggleProblem = (problemId) => {
@@ -102,6 +103,13 @@ function DSATab({ progress, setProgress }) {
                       </button>
                       <span className="problem-name">{problem.title}</span>
                       <span className={`problem-difficulty ${problem.difficulty}`}>{problem.difficulty}</span>
+                      <button
+                        className="problem-ai-btn"
+                        onClick={() => askAI(`Explain the LeetCode problem "${problem.title}" under "${topic.title}". Provide an optimal solution in Python and JavaScript with time/space complexity analysis.`)}
+                        title="Ask AI Assistant"
+                      >
+                        🤖 Ask AI
+                      </button>
                       {problem.link && (
                         <a href={problem.link} target="_blank" rel="noopener noreferrer" className="problem-link">
                           LeetCode →
@@ -122,7 +130,7 @@ function DSATab({ progress, setProgress }) {
 /* ================================
    SQL TAB
    ================================ */
-function SQLTab({ progress, setProgress }) {
+function SQLTab({ progress, setProgress, askAI }) {
   const [expandedTopic, setExpandedTopic] = useState(null);
 
   const toggleProblem = (problemId) => {
@@ -194,6 +202,13 @@ function SQLTab({ progress, setProgress }) {
                       </button>
                       <span className="problem-name">{problem.title}</span>
                       <span className={`problem-difficulty ${problem.difficulty}`}>{problem.difficulty}</span>
+                      <button
+                        className="problem-ai-btn"
+                        onClick={() => askAI(`Explain the SQL practice task "${problem.title}" under "${topic.title}". Write an optimized SQL query with explanation.`)}
+                        title="Ask AI Assistant"
+                      >
+                        🤖 Ask AI
+                      </button>
                     </div>
                   );
                 })}
@@ -209,7 +224,7 @@ function SQLTab({ progress, setProgress }) {
 /* ================================
    AI/ML TAB
    ================================ */
-function AITab({ progress, setProgress }) {
+function AITab({ progress, setProgress, askAI }) {
   const [expandedTopic, setExpandedTopic] = useState(null);
 
   const toggleProblem = (problemId) => {
@@ -281,6 +296,13 @@ function AITab({ progress, setProgress }) {
                       </button>
                       <span className="problem-name">{problem.title}</span>
                       <span className={`problem-difficulty ${problem.difficulty}`}>{problem.difficulty}</span>
+                      <button
+                        className="problem-ai-btn"
+                        onClick={() => askAI(`Explain the Machine Learning concept/task "${problem.title}" under "${topic.title}". Detail standard architectures, formulas, and how to implement it.`)}
+                        title="Ask AI Assistant"
+                      >
+                        🤖 Ask AI
+                      </button>
                     </div>
                   );
                 })}
@@ -367,6 +389,171 @@ function InterviewTab({ confidence, setConfidence }) {
 }
 
 /* ================================
+   AI STUDY ASSISTANT TAB
+   ================================ */
+function AIStudyAssistantTab({ presetQuery, setPresetQuery }) {
+  const [apiKey, setApiKey] = useLocalStorage('pk-gemini-api-key', '');
+  const [messages, setMessages] = useLocalStorage('pk-ai-chat-history', [
+    {
+      role: 'model',
+      content: 'Hello! I am your AI Study Assistant. Ask me anything about Data Structures & Algorithms, SQL databases, or Artificial Intelligence, and I will explain it with code examples!'
+    }
+  ]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const sendMessage = async (textToSend) => {
+    const text = textToSend || input;
+    if (!text.trim()) return;
+
+    if (!apiKey) {
+      alert('Please enter a Gemini API Key in the box above to use the Study Assistant.');
+      return;
+    }
+
+    const updatedMessages = [...messages, { role: 'user', content: text }];
+    setMessages(updatedMessages);
+    setInput('');
+    setLoading(false); // don't block yet
+    setLoading(true);
+
+    try {
+      const contents = updatedMessages.slice(-8).map(m => ({
+        role: m.role === 'model' ? 'model' : 'user',
+        parts: [{ text: m.content }]
+      }));
+
+      contents.unshift({
+        role: 'user',
+        parts: [{
+          text: "System Instruction: You are an AI Study Assistant for Prabhat Kumar. Your goal is to explain Data Structures & Algorithms (DSA), SQL databases, Python, and Machine Learning concepts. Be highly educational, clear, concise, and provide clean, readable code snippets (using markdown) when explaining code solutions."
+        }]
+      });
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents })
+      });
+
+      const data = await response.json();
+      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response. Please check your API key or network connection.";
+      
+      setMessages([...updatedMessages, { role: 'model', content: reply }]);
+    } catch (e) {
+      setMessages([...updatedMessages, { role: 'model', content: 'Error: Failed to connect to Gemini API. Please check your network and API key.' }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Trigger preset query if it arrives from other tabs
+  const handlePresetTrigger = () => {
+    if (presetQuery) {
+      sendMessage(presetQuery);
+      setPresetQuery('');
+    }
+  };
+
+  useMemo(() => {
+    handlePresetTrigger();
+  }, [presetQuery]);
+
+  const clearChat = () => {
+    if (window.confirm('Are you sure you want to clear your chat history?')) {
+      setMessages([
+        {
+          role: 'model',
+          content: 'Hello! I am your AI Study Assistant. Ask me anything about Data Structures & Algorithms, SQL databases, or Artificial Intelligence, and I will explain it with code examples!'
+        }
+      ]);
+    }
+  };
+
+  const PRESETS = [
+    "Explain Binary Search patterns",
+    "Show SQL query for second highest salary",
+    "Explain standard Normalization forms (1NF, 2NF, 3NF)",
+    "Explain Gradient Descent in Neural Networks",
+  ];
+
+  return (
+    <div className="study-ai-container">
+      {/* Key Input */}
+      <div className="ai-key-banner">
+        <label htmlFor="gemini-key">🔑 Gemini API Key:</label>
+        <input
+          id="gemini-key"
+          type="password"
+          placeholder="Paste Gemini API Key here..."
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+        />
+        <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" className="key-help-link">
+          Get Free Key →
+        </a>
+      </div>
+
+      {/* Chat Area */}
+      <div className="ai-chat-window">
+        <div className="ai-chat-messages">
+          {messages.map((m, idx) => (
+            <div key={idx} className={`ai-message-wrapper ${m.role}`}>
+              <div className="ai-message-avatar">{m.role === 'model' ? '🤖' : '👤'}</div>
+              <div className="ai-message-bubble">
+                <div
+                  className="ai-message-text"
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(m.content) }}
+                />
+              </div>
+            </div>
+          ))}
+          {loading && (
+            <div className="ai-message-wrapper model loading">
+              <div className="ai-message-avatar">🤖</div>
+              <div className="ai-message-bubble">
+                <div className="ai-loading-dots">
+                  <span>.</span><span>.</span><span>.</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Preset Questions */}
+        {messages.length <= 1 && (
+          <div className="ai-presets">
+            {PRESETS.map((p, i) => (
+              <button key={i} className="ai-preset-btn" onClick={() => sendMessage(p)}>
+                {p}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Input Controls */}
+        <form className="ai-chat-input-form" onSubmit={(e) => { e.preventDefault(); sendMessage(); }}>
+          <input
+            type="text"
+            className="ai-chat-input"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={apiKey ? "Ask a doubt or explain a topic..." : "Please configure your API Key above first"}
+            disabled={loading || !apiKey}
+          />
+          <button type="submit" className="ai-chat-send-btn" disabled={loading || !input.trim() || !apiKey}>
+            Send
+          </button>
+          <button type="button" className="ai-chat-clear-btn" onClick={clearChat} title="Clear Chat">
+            🗑️
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* ================================
    QUICK NOTES TAB
    ================================ */
 function NotesTab({ notes, setNotes }) {
@@ -390,6 +577,7 @@ function NotesTab({ notes, setNotes }) {
 export default function StudyHub() {
   const [activeTab, setActiveTab] = useState('dsa');
   const [headerRef, headerRevealed] = useScrollReveal();
+  const [aiPresetQuery, setAiPresetQuery] = useState('');
 
   // Persisted state
   const [dsaProgress, setDsaProgress] = useLocalStorage('pk-dsa-progress', {});
@@ -397,6 +585,11 @@ export default function StudyHub() {
   const [aiProgress, setAiProgress] = useLocalStorage('pk-ai-progress', {});
   const [interviewConfidence, setInterviewConfidence] = useLocalStorage('pk-interview-confidence', {});
   const [quickNotes, setQuickNotes] = useLocalStorage('pk-quick-notes', '');
+
+  const askAI = (query) => {
+    setAiPresetQuery(query);
+    setActiveTab('assistant');
+  };
 
   // Calculate overall stats
   const overallStats = useMemo(() => {
@@ -489,10 +682,11 @@ export default function StudyHub() {
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'dsa' && <DSATab progress={dsaProgress} setProgress={setDsaProgress} />}
-        {activeTab === 'sql' && <SQLTab progress={sqlProgress} setProgress={setSqlProgress} />}
-        {activeTab === 'ai' && <AITab progress={aiProgress} setProgress={setAiProgress} />}
+        {activeTab === 'dsa' && <DSATab progress={dsaProgress} setProgress={setDsaProgress} askAI={askAI} />}
+        {activeTab === 'sql' && <SQLTab progress={sqlProgress} setProgress={setSqlProgress} askAI={askAI} />}
+        {activeTab === 'ai' && <AITab progress={aiProgress} setProgress={setAiProgress} askAI={askAI} />}
         {activeTab === 'interview' && <InterviewTab confidence={interviewConfidence} setConfidence={setInterviewConfidence} />}
+        {activeTab === 'assistant' && <AIStudyAssistantTab presetQuery={aiPresetQuery} setPresetQuery={setAiPresetQuery} />}
         {activeTab === 'notes' && <NotesTab notes={quickNotes} setNotes={setQuickNotes} />}
       </div>
     </section>
