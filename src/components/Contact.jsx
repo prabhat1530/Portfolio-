@@ -30,7 +30,7 @@ export default function Contact() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (WEB3FORMS_ACCESS_KEY === "2dee7ed6-7f0b-4c3f-844f-f737aa3c5eae") {
+    if (WEB3FORMS_ACCESS_KEY === "YOUR_ACCESS_KEY_HERE" || !WEB3FORMS_ACCESS_KEY) {
       // Fallback: if no key is set yet, open the default mail application
       const mailtoLink = `mailto:pk9588934@gmail.com?subject=${encodeURIComponent(formData.subject)}&body=${encodeURIComponent(`Name: ${formData.name}\nEmail: ${formData.email}\n\n${formData.message}`)}`;
       window.open(mailtoLink);
