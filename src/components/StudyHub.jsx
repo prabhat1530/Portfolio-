@@ -3,12 +3,14 @@ import { useScrollReveal } from '../hooks/useAnimations';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import DSA_TOPICS from '../data/dsaTopics';
 import SQL_TOPICS from '../data/sqlTopics';
+import AI_TOPICS from '../data/aiTopics';
 import INTERVIEW_TOPICS from '../data/interviewTopics';
 import './StudyHub.css';
 
 const TABS = [
   { id: 'dsa', label: '🧮 DSA Tracker' },
   { id: 'sql', label: '🗃️ SQL Notes' },
+  { id: 'ai', label: '🤖 AI/ML' },
   { id: 'interview', label: '🎯 Interview Prep' },
   { id: 'notes', label: '📝 Quick Notes' },
 ];
@@ -205,6 +207,93 @@ function SQLTab({ progress, setProgress }) {
 }
 
 /* ================================
+   AI/ML TAB
+   ================================ */
+function AITab({ progress, setProgress }) {
+  const [expandedTopic, setExpandedTopic] = useState(null);
+
+  const toggleProblem = (problemId) => {
+    setProgress(prev => ({
+      ...prev,
+      [problemId]: cycleStatus(prev[problemId] || 'not-started'),
+    }));
+  };
+
+  const getTopicProgress = (topic) => {
+    const total = topic.problems.length;
+    const done = topic.problems.filter(p => progress[p.id] === 'done').length;
+    return { done, total, percent: total > 0 ? Math.round((done / total) * 100) : 0 };
+  };
+
+  const getProgressClass = (percent) => {
+    if (percent === 100) return 'full';
+    if (percent >= 60) return 'high';
+    if (percent >= 30) return 'mid';
+    return 'low';
+  };
+
+  return (
+    <div className="study-topics">
+      {AI_TOPICS.map(topic => {
+        const prog = getTopicProgress(topic);
+        const isExpanded = expandedTopic === topic.id;
+
+        return (
+          <div key={topic.id} className={`topic-card ${isExpanded ? 'expanded' : ''}`}>
+            <div className="topic-header" onClick={() => setExpandedTopic(isExpanded ? null : topic.id)}>
+              <span className="topic-icon">{topic.icon}</span>
+              <div className="topic-info">
+                <div className="topic-title">{topic.title}</div>
+                <div className="topic-meta">
+                  <span className="topic-count">{prog.done}/{prog.total} done</span>
+                  <div className="topic-progress-bar">
+                    <div
+                      className={`topic-progress-fill ${getProgressClass(prog.percent)}`}
+                      style={{ width: `${prog.percent}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+              <span className="topic-toggle">▼</span>
+            </div>
+            <div className="topic-body">
+              {/* Notes */}
+              {topic.notes && (
+                <div className="sql-notes-content">
+                  <div
+                    className="sql-note-block"
+                    dangerouslySetInnerHTML={{ __html: renderMarkdown(topic.notes) }}
+                  />
+                </div>
+              )}
+              {/* Problems */}
+              <div className="topic-problems">
+                {topic.problems.map(problem => {
+                  const status = progress[problem.id] || 'not-started';
+                  return (
+                    <div key={problem.id} className={`problem-item ${status}`}>
+                      <button
+                        className={`problem-checkbox ${status}`}
+                        onClick={() => toggleProblem(problem.id)}
+                        title={`Status: ${status}`}
+                      >
+                        {status === 'done' ? '✓' : status === 'in-progress' ? '◐' : ''}
+                      </button>
+                      <span className="problem-name">{problem.title}</span>
+                      <span className={`problem-difficulty ${problem.difficulty}`}>{problem.difficulty}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ================================
    INTERVIEW TAB
    ================================ */
 function InterviewTab({ confidence, setConfidence }) {
@@ -305,6 +394,7 @@ export default function StudyHub() {
   // Persisted state
   const [dsaProgress, setDsaProgress] = useLocalStorage('pk-dsa-progress', {});
   const [sqlProgress, setSqlProgress] = useLocalStorage('pk-sql-progress', {});
+  const [aiProgress, setAiProgress] = useLocalStorage('pk-ai-progress', {});
   const [interviewConfidence, setInterviewConfidence] = useLocalStorage('pk-interview-confidence', {});
   const [quickNotes, setQuickNotes] = useLocalStorage('pk-quick-notes', '');
 
@@ -317,12 +407,15 @@ export default function StudyHub() {
     const allSqlProblems = SQL_TOPICS.flatMap(t => t.problems);
     const sqlDone = allSqlProblems.filter(p => sqlProgress[p.id] === 'done').length;
 
+    const allAiProblems = AI_TOPICS.flatMap(t => t.problems);
+    const aiDone = allAiProblems.filter(p => aiProgress[p.id] === 'done').length;
+
     const allInterviewItems = INTERVIEW_TOPICS.flatMap(t => t.items);
     const interviewTotal = allInterviewItems.length * 5;
     const interviewCurrent = allInterviewItems.reduce((sum, item) => sum + (interviewConfidence[item.id] || 0), 0);
 
-    const totalProblems = allDsaProblems.length + allSqlProblems.length;
-    const totalDone = dsaDone + sqlDone;
+    const totalProblems = allDsaProblems.length + allSqlProblems.length + allAiProblems.length;
+    const totalDone = dsaDone + sqlDone + aiDone;
 
     return {
       dsaTotal: allDsaProblems.length,
@@ -330,10 +423,12 @@ export default function StudyHub() {
       dsaInProgress,
       sqlTotal: allSqlProblems.length,
       sqlDone,
+      aiTotal: allAiProblems.length,
+      aiDone,
       interviewPercent: interviewTotal > 0 ? Math.round((interviewCurrent / interviewTotal) * 100) : 0,
       overallPercent: totalProblems > 0 ? Math.round((totalDone / totalProblems) * 100) : 0,
     };
-  }, [dsaProgress, sqlProgress, interviewConfidence]);
+  }, [dsaProgress, sqlProgress, aiProgress, interviewConfidence]);
 
   return (
     <section className="study-hub section" id="study-hub">
@@ -361,6 +456,10 @@ export default function StudyHub() {
             <div className="overall-stat">
               <div className="overall-stat-number">{overallStats.sqlDone}/{overallStats.sqlTotal}</div>
               <div className="overall-stat-label">SQL Done</div>
+            </div>
+            <div className="overall-stat">
+              <div className="overall-stat-number">{overallStats.aiDone}/{overallStats.aiTotal}</div>
+              <div className="overall-stat-label">AI/ML Done</div>
             </div>
             <div className="overall-stat">
               <div className="overall-stat-number">{overallStats.interviewPercent}%</div>
@@ -392,6 +491,7 @@ export default function StudyHub() {
         {/* Tab Content */}
         {activeTab === 'dsa' && <DSATab progress={dsaProgress} setProgress={setDsaProgress} />}
         {activeTab === 'sql' && <SQLTab progress={sqlProgress} setProgress={setSqlProgress} />}
+        {activeTab === 'ai' && <AITab progress={aiProgress} setProgress={setAiProgress} />}
         {activeTab === 'interview' && <InterviewTab confidence={interviewConfidence} setConfidence={setInterviewConfidence} />}
         {activeTab === 'notes' && <NotesTab notes={quickNotes} setNotes={setQuickNotes} />}
       </div>
