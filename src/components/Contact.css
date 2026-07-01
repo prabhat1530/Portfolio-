@@ -216,6 +216,25 @@
   transform: translateY(0);
 }
 
+.form-submit.submitting {
+  background: var(--text-muted);
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.form-submit.success {
+  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+  box-shadow: 0 12px 35px rgba(16, 185, 129, 0.35);
+  transform: none;
+}
+
+.form-submit.error {
+  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+  box-shadow: 0 12px 35px rgba(239, 68, 68, 0.35);
+  transform: none;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
